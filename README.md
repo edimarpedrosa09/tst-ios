@@ -1,93 +1,114 @@
-# tst-ios
 
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/edm.pedrosa/tst-ios.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/edm.pedrosa/tst-ios/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Linphone is an open source softphone for voice and video over IP calling and instant messaging. It is fully SIP-based, for all calling, presence and IM features.
+General description is available from [linphone web site](https://www.linphone.org/technical-corner/linphone)
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Copyright © Belledonne Communications
+
+Linphone is dual licensed, and is available either :
+- under a [GNU/GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html) license, for free (open source). Please make sure that you understand and agree with the terms of this license before using it (see LICENSE file for details).
+- under a proprietary license, for a fee, to be used in closed source applications. Contact [Belledonne Communications](https://www.linphone.org/contact) for any question about costs and services.
+
+## Documentation
+
+-   Supported features and RFCs : https://www.linphone.org/technical-corner/linphone/features
+-   Linphone public wiki : https://wiki.linphone.org/xwiki/wiki/public/view/Linphone/
+
+
+# How can I contribute?
+
+Thanks for asking! We love pull requests from everyone. Depending on what you want to do, you can help us improve Linphone in
+various ways:
+
+## Help on translations
+
+We no longer use transifex for the translation process, instead we have deployed our own instance of [Weblate](https://weblate.linphone.org/projects/linphone-iphone/).
+
+Due to the full app rewrite we can't re-use previous translations, so we'll be very happy if you want to contribute.
+
+## Report bugs and submit patchs
+
+If you want to dig through Linphone code or report a bug, please read `CONTRIBUTING.md` first. You should also read this `README` entirely ;-).
+
+## How to be a beta tester ?
+
+Enter the Beta :
+- Download TestFlight from the App Store and log in it with your apple-id
+-Tap the public link on your iOS device. The public link : https://testflight.apple.com/join/LUlmZWjH
+-Touch View in TestFlight or Start Testing. You can also touch Accept, Install, or Update for Linphone app.
+-And voilà ! You can update your beta version with the same public link when a new one is available
+
+Send a crash report :
+ - It is done automatically by TestFlight
+
+Report a bug :
+ - Open Linphone
+ - Go to Settings —> Advanced —> Send logs
+ - An email to linphone-iphone@belledonne-communications.com is created with your logs attached
+ - Fill in the bug description with :
+	* What you were doing
+	* What happened
+	* What you were expecting
+	* Approximately when the bug happened
+ - Change the object to [Beta test - Bug report]
+ - Send the mail
+
+# Building the application
+
+## What's new
+
+Now the default way of building linphone-iphone is to use CocoaPods to retrieve the linphone-sdk frameworks.
+Compared to previous versions, this project no longer uses submodules developper has to build in order to get a working app.
+However, if you wish to use a locally compiled SDK, read paragraph "Using a local linphone SDK" below to know how to proceed.
+
+## Building the app
+
+If you don't have CocoaPods already, you can download and install it using :
+```
+	sudo gem install cocoapods
+```
+**If you alreadly have Cocoapods, make sur that the version is higher than 1.7.5**.
+
+- Install the app's dependencies with cocoapods first:
+```
+	pod install
+```
+  It will download the linphone-sdk from our gitlab repository so you don't have to build anything yourself.
+- Then open `linphone.xcworkspace` file (**NOT linphone.xcodeproj**) with XCode to build and run the app.
+
+# Limitations and known bugs
+
+* Video capture will not work in simulator (not implemented in it).
+
+
+# Using a local linphone SDK
+
+- Clone the linphone-sdk repository from out gitlab:
+```
+   git clone https://gitlab.linphone.org/BC/public/linphone-sdk.git --recursive
+```
+
+- Follow the instructions in the linphone-sdk/README file to build the SDK.
+
+- Rebuild the project:
+```
+   PODFILE_PATH=<path to linphone-sdk-ios> pod install
+```
+  where <path to linphone-sdk-ios> is your build directory of the linphone-sdk project, containing the `linphone-sdk.podspec` file and a `linphone-sdk` ouptut directory comprising built frameworks and resources.
+
+- Then open linphone.xcworkspace with Xcode to build and run the app.
+
+# Enabling crashlytics
+
+We've integrated Crashlytics into liphone-iphone, which can automatically send crash reports. It is disabled by default.
+To activate it:
+
+- Replace the GoogleService-Info.plist for this project with yours (specific to your crashlytics account).
+
+- Rebuild the project:
+```
+    USE_CRASHLYTICS=true pod install
+```
+
+- Then open `linphone.xcworkspace` with Xcode to build and run the app.
