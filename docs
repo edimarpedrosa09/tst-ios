@@ -1,0 +1,1052 @@
+# 📁 Sistema de Gerenciamento de Arquivos
+
+## 🚀 Visão Geral
+
+Sistema completo de gerenciamento de arquivos desenvolvido em **Streamlit** com recursos avançados de segurança, uploads simultâneos, autenticação MFA e painel administrativo completo.
+
+### 🎯 Principais Características
+
+- ✅ **Upload simultâneo** de até 10 arquivos
+- 🔐 **Autenticação MFA** (Multi-Factor Authentication)
+- 🛡️ **Painel administrativo** completo
+- 🔗 **Links temporários** para compartilhamento
+- 🔒 **Sistema de segurança** integrado
+- 📊 **Monitoramento** em tempo real
+- ☁️ **Armazenamento S3** da AWS
+
+---
+
+## 📋 Índice
+
+- [Instalação e Configuração](#-instalação-e-configuração)
+- [Arquitetura do Sistema](#-arquitetura-do-sistema)
+- [Módulos e Funcionalidades](#-módulos-e-funcionalidades)
+- [Sistema de Usuários](#-sistema-de-usuários)
+- [Upload de Arquivos](#-upload-de-arquivos)
+- [Painel Administrativo](#-painel-administrativo)
+- [Sistema de Segurança](#-sistema-de-segurança)
+- [API e Integrações](#-api-e-integrações)
+- [Troubleshooting](#-troubleshooting)
+
+---
+
+## 🛠 Instalação e Configuração
+
+### Pré-requisitos
+
+```bash
+# Python 3.8+
+python --version
+
+# PostgreSQL 12+
+psql --version
+
+# AWS CLI (opcional)
+aws --version
+```
+
+### Dependências
+
+```bash
+pip install -r requirements.txt
+```
+
+**Principais dependências:**
+- `streamlit>=1.29.0` - Interface web
+- `psycopg2-binary>=2.9.7` - Conexão PostgreSQL
+- `boto3>=1.28.0` - AWS S3
+- `pyotp>=2.8.0` - MFA (opcional)
+- `qrcode[pil]>=7.4.2` - QR Codes MFA (opcional)
+
+### Variáveis de Ambiente
+
+```bash
+# Banco de dados
+DATABASE_URL=postgresql://user:password@host:port/database
+
+# AWS S3
+AWS_ACCESS_KEY_ID=sua_access_key
+AWS_SECRET_ACCESS_KEY=sua_secret_key
+AWS_REGION=us-east-1
+S3_BUCKET=seu-bucket
+
+# Aplicação
+BASE_URL=https://seu-dominio.com
+COMPANY_NAME=Sua Empresa
+SECURITY_ENABLED=true
+```
+
+### Inicialização
+
+```bash
+# 1. Configurar banco de dados
+python -c "from database import DatabaseManager; from config import Config; db = DatabaseManager(Config.DATABASE_URL); db.init_database()"
+
+# 2. Executar aplicação
+streamlit run main.py
+```
+
+---
+
+## 🏗 Arquitetura do Sistema
+
+```
+📁 Sistema de Arquivos/
+├── 🎛 main.py                    # Aplicação principal
+├── ⚙️ config.py                  # Configurações e segurança
+├── 🗄️ database.py               # Gerenciamento de banco
+├── ☁️ s3_manager.py             # Interface AWS S3
+├── 👤 session_manager.py        # Gerenciamento de sessões
+├── 🔐 mfa.py                    # Multi-Factor Authentication
+├── 🛡️ security_patches.py       # Sistema de segurança
+├── 👥 user_management.py        # Gerenciamento de usuários
+├── 🎨 ui_components.py          # Componentes de interface
+├── 📄 pages.py                  # Páginas da aplicação
+├── 🛡️ admin_pages.py            # Painel administrativo
+├── 📤 concurrent_upload_ui.py   # Interface uploads simultâneos
+├── 📊 enhanced_upload_monitor.py # Monitor de uploads
+└── 🧪 test_concurrent_uploads.py # Testes
+```
+
+---
+
+## 📦 Módulos e Funcionalidades
+
+### 🎛 `main.py` - Aplicação Principal
+
+**Responsabilidades:**
+- Inicialização do sistema
+- Roteamento de páginas
+- Gerenciamento de estado
+- Tratamento de erros
+
+**Funções principais:**
+```python
+def main()  # Função principal da aplicação
+def render_emergency_login()  # Login de emergência
+class CompleteAdminApplicationPage  # Aplicação com painel admin
+```
+
+**Características:**
+- ✅ Sistema de fallback para erros
+- 🔄 Auto-recuperação de sessão
+- 🛡️ Verificação de permissões admin
+- 📱 Interface responsiva
+
+---
+
+### ⚙️ `config.py` - Configurações e Segurança
+
+**Responsabilidades:**
+- Configuração de ambiente
+- Sistema de segurança integrado
+- Validação de dependências
+- Rate limiting
+
+**Classes principais:**
+```python
+class Config  # Configurações centralizadas
+class IntegratedSecurityManager  # Segurança integrada
+```
+
+**Funções principais:**
+```python
+def setup_app_security()  # Inicializa segurança
+def validate_environment()  # Valida variáveis de ambiente
+def check_dependencies()  # Verifica dependências opcionais
+```
+
+**Características:**
+- 🔒 Headers de segurança automáticos
+- 🚫 Rate limiting por IP
+- 🛡️ Detecção de ameaças
+- 📊 Logs estruturados de segurança
+
+---
+
+### 🗄️ `database.py` - Gerenciamento de Banco
+
+**Responsabilidades:**
+- Conexões thread-safe com PostgreSQL
+- Operações CRUD otimizadas
+- Gerenciamento de sessões
+- Uploads simultâneos
+
+**Principais tabelas:**
+```sql
+users                  -- Usuários básicos
+users_extended         -- Usuários com informações completas
+files                  -- Metadados de arquivos
+upload_sessions        -- Sessões de upload
+temporary_links        -- Links temporários
+admin_logs            -- Logs administrativos
+```
+
+**Métodos principais:**
+```python
+def authenticate_user()     # Autenticação com fallback
+def create_upload_session() # Sessões de upload
+def save_file_metadata()    # Salvar metadados
+def generate_unique_filename() # Nomes únicos thread-safe
+def create_temporary_link() # Links compartilháveis
+```
+
+**Características:**
+- 🔄 Pool de conexões thread-safe
+- 🆔 Geração de nomes únicos
+- 📊 Estatísticas de upload
+- 🔗 Sistema de links temporários
+
+---
+
+### ☁️ `s3_manager.py` - Interface AWS S3
+
+**Responsabilidades:**
+- Upload/download otimizado
+- Multipart upload automático
+- Tratamento de erros S3
+- Monitoramento de performance
+
+**Métodos principais:**
+```python
+def upload_file()      # Upload com otimizações
+def download_file()    # Download seguro
+def delete_file()      # Exclusão de arquivos
+def get_file_info()    # Informações do arquivo
+```
+
+**Características:**
+- 📤 Multipart automático para arquivos >100MB
+- ⚡ Upload otimizado com callback
+- 🔄 Retry automático em falhas
+- 📊 Métricas de velocidade
+
+---
+
+### 👤 `session_manager.py` - Gerenciamento de Sessões
+
+**Responsabilidades:**
+- Sessões persistentes com cookies
+- Tokens de segurança
+- Cleanup automático
+- Estado da aplicação
+
+**Métodos principais:**
+```python
+def complete_login()         # Finalizar login
+def check_persistent_session() # Verificar sessão salva
+def perform_logout()         # Logout completo
+def save_session_cookie()    # Salvar cookie seguro
+```
+
+**Características:**
+- 🍪 Cookies seguros (opcional)
+- 🔐 Tokens criptografados
+- ⏰ Expiração automática
+- 🧹 Cleanup de sessões antigas
+
+---
+
+### 🔐 `mfa.py` - Multi-Factor Authentication
+
+**Responsabilidades:**
+- Geração de QR codes
+- Validação TOTP
+- Integração Google Authenticator
+- Gerenciamento de secrets
+
+**Métodos principais:**
+```python
+def setup_mfa_for_user()    # Configurar MFA
+def verify_mfa_token()      # Verificar código
+def generate_qr_code()      # QR para Authenticator
+def enable_mfa_for_user()   # Ativar MFA
+```
+
+**Características:**
+- 📱 Compatível com Google Authenticator
+- 🔄 Window de tolerância configurável
+- 🎯 QR codes otimizados
+- 🔒 Secrets seguros
+
+---
+
+### 🛡️ `security_patches.py` - Sistema de Segurança
+
+**Responsabilidades:**
+- Rate limiting avançado
+- Detecção de ameaças
+- Bloqueio de IP
+- Headers de segurança
+
+**Classes principais:**
+```python
+class SimplifiedSecurityManager  # Gerenciador principal
+class SecurityConfig           # Configuração de segurança
+```
+
+**Métodos principais:**
+```python
+def check_rate_limit()         # Rate limiting por ação
+def scan_content_for_threats() # Detecção de malware
+def log_security_event()       # Log estruturado
+def apply_security_headers()   # Headers HTTP seguros
+```
+
+**Características:**
+- 🚫 Rate limiting por IP/usuário
+- 🔍 Detecção de XSS, SQL Injection, Path Traversal
+- 📊 Logs estruturados de segurança
+- 🛡️ Headers de segurança automáticos
+
+---
+
+### 👥 `user_management.py` - Gerenciamento de Usuários
+
+**Responsabilidades:**
+- CRUD completo de usuários
+- Sistema de roles e permissões
+- Logs administrativos
+- Permissões granulares
+
+**Roles disponíveis:**
+```python
+SUPER_ADMIN  # Acesso total
+ADMIN        # Administração completa
+MANAGER      # Gerenciamento limitado
+USER         # Usuário padrão
+GUEST        # Acesso mínimo
+```
+
+**Permissões:**
+```python
+VIEW_USERS, CREATE_USERS, UPDATE_USERS, DELETE_USERS
+VIEW_ALL_FILES, DELETE_ALL_FILES, ADMIN_DOWNLOAD
+VIEW_LOGS, SYSTEM_CONFIG, IMPERSONATE_USER
+```
+
+**Métodos principais:**
+```python
+def create_user()           # Criar usuário com validações
+def update_user()           # Atualizar com logs
+def delete_user()           # Soft/hard delete
+def has_permission()        # Verificar permissões
+def get_admin_logs()        # Logs administrativos
+```
+
+**Características:**
+- 🎭 Sistema de roles hierárquico
+- 🔐 Permissões granulares
+- 📊 Logs detalhados de ações
+- 🔍 Busca avançada de usuários
+
+---
+
+### 🎨 `ui_components.py` - Componentes de Interface
+
+**Responsabilidades:**
+- Componentes reutilizáveis
+- Layout responsivo
+- Feedback visual
+- Experiência do usuário
+
+**Componentes principais:**
+```python
+def display_header_with_logo()  # Cabeçalho com logo
+def show_login_form()           # Formulário de login
+def show_file_upload_section()  # Upload com validações
+def show_file_list()            # Lista de arquivos
+```
+
+**Características:**
+- 🎨 Design consistente
+- 📱 Layout responsivo
+- ✅ Validações visuais
+- 🔄 Feedback em tempo real
+
+---
+
+### 📄 `pages.py` - Páginas da Aplicação
+
+**Responsabilidades:**
+- Páginas principais
+- Fluxo de navegação
+- Integração de componentes
+- Gerenciamento de estado
+
+**Páginas disponíveis:**
+```python
+class LoginPage              # Login com MFA
+class MainApplicationPage    # Aplicação principal
+class MFASetupPage          # Configuração MFA
+class TemporaryLinksPage    # Gerenciamento de links
+class TemporaryLinkAccessPage # Acesso via link
+```
+
+**Características:**
+- 🔄 Navegação fluida
+- 🔐 Controle de acesso
+- 📱 Interface adaptável
+- ⚡ Carregamento otimizado
+
+---
+
+### 🛡️ `admin_pages.py` - Painel Administrativo
+
+**Responsabilidades:**
+- Interface administrativa completa
+- Gerenciamento de usuários
+- Monitoramento do sistema
+- Relatórios e estatísticas
+
+**Seções principais:**
+- 📊 **Dashboard** - Estatísticas gerais
+- 👥 **Usuários** - CRUD completo
+- 📁 **Arquivos** - Gerenciamento de arquivos
+- 📈 **Relatórios** - Análises e métricas
+- 🔍 **Logs** - Auditoria do sistema
+
+**Funcionalidades:**
+```python
+def render_admin_panel()        # Painel principal
+def render_user_administration() # Administração de usuários
+def render_create_user_form()   # Criação de usuários
+def render_files_administration() # Gestão de arquivos
+```
+
+**Características:**
+- 🛡️ Verificação de permissões
+- 📊 Dashboards interativos
+- 🔍 Busca e filtros avançados
+- 📈 Relatórios em tempo real
+
+---
+
+### 📤 `concurrent_upload_ui.py` - Interface Uploads Simultâneos
+
+**Responsabilidades:**
+- Interface para uploads múltiplos
+- Monitoramento em tempo real
+- Sincronização de metadados
+- Recuperação de erros
+
+**Classes principais:**
+```python
+class ConcurrentUploadUI     # Interface principal
+```
+
+**Métodos principais:**
+```python
+def render_upload_section()      # Seção principal
+def render_multi_upload_area()   # Área de seleção múltipla
+def render_active_uploads_monitor() # Monitor em tempo real
+def sync_completed_uploads()     # Sincronização de metadados
+```
+
+**Características:**
+- 📤 Até 10 uploads simultâneos
+- 🎯 Priorização de uploads
+- 📊 Progresso em tempo real
+- 🔄 Sincronização automática
+- 🔍 Detecção de arquivos órfãos
+
+---
+
+### 📊 `enhanced_upload_monitor.py` - Monitor de Uploads
+
+**Responsabilidades:**
+- Gerenciamento de uploads simultâneos
+- Thread safety
+- Estatísticas de performance
+- Sistema de filas
+
+**Classes principais:**
+```python
+class ConcurrentUploadManager    # Gerenciador principal
+class UploadSession             # Sessão individual
+class S3ConcurrentUploadManager # Integração S3
+```
+
+**Métodos principais:**
+```python
+def create_upload_session()     # Criar sessão
+def queue_upload()              # Adicionar à fila
+def update_progress()           # Atualizar progresso
+def complete_upload()           # Finalizar upload
+def get_system_statistics()     # Estatísticas do sistema
+```
+
+**Características:**
+- 🔄 Thread-safe com locks
+- 📊 Estatísticas detalhadas
+- ⚡ Pool de workers
+- 🎯 Sistema de prioridades
+- 📈 Métricas de performance
+
+---
+
+## 👤 Sistema de Usuários
+
+### Roles e Permissões
+
+| Role | Descrição | Permissões |
+|------|-----------|------------|
+| **SUPER_ADMIN** | Acesso total ao sistema | Todas as permissões |
+| **ADMIN** | Administrador completo | Gerenciar usuários, arquivos, logs |
+| **MANAGER** | Gerente de setor | Ver usuários, downloads admin |
+| **USER** | Usuário padrão | Upload, download próprios arquivos |
+| **GUEST** | Acesso limitado | Apenas visualização |
+
+### Permissões Disponíveis
+
+```python
+# Usuários
+VIEW_USERS          # Ver lista de usuários
+CREATE_USERS        # Criar novos usuários
+UPDATE_USERS        # Editar usuários existentes
+DELETE_USERS        # Desativar usuários
+HARD_DELETE_USERS   # Deletar permanentemente
+
+# Arquivos
+VIEW_ALL_FILES      # Ver todos os arquivos
+DELETE_ALL_FILES    # Deletar qualquer arquivo
+ADMIN_DOWNLOAD      # Download administrativo
+
+# Sistema
+VIEW_LOGS           # Ver logs do sistema
+SYSTEM_CONFIG       # Configurar sistema
+IMPERSONATE_USER    # Impersonar usuários
+BACKUP_SYSTEM       # Backup do sistema
+```
+
+### Fluxo de Autenticação
+
+```mermaid
+graph TD
+    A[Login] --> B{Credenciais válidas?}
+    B -->|Não| C[Erro de login]
+    B -->|Sim| D{MFA habilitado?}
+    D -->|Não| E[Login completo]
+    D -->|Sim| F[Solicitar código MFA]
+    F --> G{Código válido?}
+    G -->|Não| H[Erro MFA]
+    G -->|Sim| E[Login completo]
+```
+
+---
+
+## 📤 Upload de Arquivos
+
+### Tipos de Upload
+
+#### Upload Básico
+- ✅ Arquivos até 2GB
+- ✅ Progresso básico
+- ✅ Validação de tipo
+
+#### Upload Simultâneo
+- ✅ Até 10 arquivos simultaneamente
+- ✅ Sistema de prioridades
+- ✅ Progresso detalhado
+- ✅ Recovery automático
+
+### Fluxo de Upload
+
+```mermaid
+graph TD
+    A[Seleção de arquivos] --> B[Validação]
+    B --> C[Criação de sessões]
+    C --> D[Fila de uploads]
+    D --> E[Workers paralelos]
+    E --> F[Upload S3]
+    F --> G[Salvamento metadados]
+    G --> H[Finalização]
+```
+
+### Características Técnicas
+
+| Característica | Valor |
+|----------------|-------|
+| **Tamanho máximo** | 2GB por arquivo |
+| **Uploads simultâneos** | 10 máximo |
+| **Multipart threshold** | 100MB |
+| **Chunk size** | 25MB |
+| **Retry automático** | 3 tentativas |
+| **Timeout** | 30 minutos |
+
+---
+
+## 🛡️ Painel Administrativo
+
+### Dashboard Principal
+
+**Métricas exibidas:**
+- 👥 Total de usuários (ativos/inativos)
+- 📄 Total de arquivos
+- 💾 Espaço utilizado
+- 🏢 Departamentos
+- 🔐 Usuários com MFA
+
+### Gerenciamento de Usuários
+
+**Funcionalidades:**
+- ➕ **Criar usuário** com validações completas
+- ✏️ **Editar usuário** com log de alterações
+- 🗑️ **Desativar usuário** (soft delete)
+- 💥 **Deletar permanentemente** (hard delete)
+- 🔍 **Busca avançada** com filtros
+- 📊 **Estatísticas** detalhadas
+
+**Campos do usuário:**
+```python
+username         # Nome de usuário único
+full_name       # Nome completo
+email           # Email (opcional)
+phone           # Telefone (opcional)
+department      # Departamento
+role            # Role no sistema
+status          # Status (active/inactive/pending)
+mfa_enabled     # MFA habilitado
+notes           # Observações administrativas
+```
+
+### Administração de Arquivos
+
+**Funcionalidades:**
+- 📋 **Lista todos os arquivos** do sistema
+- 🗑️ **Deletar arquivos** de qualquer usuário
+- 📊 **Estatísticas** de armazenamento
+- 🔍 **Busca** por nome/usuário
+- 📈 **Relatórios** de uso
+
+### Logs e Auditoria
+
+**Tipos de logs:**
+- 👤 Ações administrativas
+- 🔐 Eventos de segurança
+- 📤 Uploads e downloads
+- 🚫 Tentativas de acesso negado
+
+**Informações registradas:**
+```python
+timestamp       # Data/hora do evento
+admin_username  # Quem executou a ação
+action          # Tipo de ação
+target_username # Usuário afetado (se aplicável)
+ip_address      # IP de origem
+details         # Detalhes adicionais (JSON)
+success         # Se a ação foi bem-sucedida
+```
+
+---
+
+## 🔒 Sistema de Segurança
+
+### Rate Limiting
+
+**Configurações padrão:**
+```python
+'login': {'max_calls': 10, 'window_minutes': 15}
+'upload': {'max_calls': 20, 'window_minutes': 60}
+'download': {'max_calls': 100, 'window_minutes': 60}
+'general': {'max_calls': 500, 'window_minutes': 60}
+```
+
+### Detecção de Ameaças
+
+**Padrões detectados:**
+- 🚨 **XSS** - Cross-site scripting
+- 💉 **SQL Injection** - Injeção SQL
+- 📁 **Path Traversal** - Navegação de diretórios
+- ⚡ **Command Injection** - Execução de comandos
+
+### Headers de Segurança
+
+```http
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Content-Security-Policy: default-src 'self'
+```
+
+### Logs de Segurança
+
+**Formato estruturado:**
+```
+SECURITY|EVENT_TYPE|USERNAME|IP_ADDRESS|DETAILS
+```
+
+**Eventos monitorados:**
+- 🚫 Rate limit excedido
+- 🔒 IP bloqueado
+- 🚨 Conteúdo malicioso detectado
+- ✅ Acesso autorizado
+- ❌ Tentativa de acesso negado
+
+---
+
+## 🔗 Links Temporários
+
+### Características
+
+- ⏰ **Expiração configurável** (1-168 horas)
+- 🔢 **Limitação de acessos** (1-100 vezes)
+- 🔐 **Token de 6 dígitos** para segurança adicional
+- 📊 **Rastreamento de acessos**
+- 🗑️ **Desativação manual**
+
+### Fluxo de Criação
+
+```mermaid
+graph TD
+    A[Selecionar arquivo] --> B[Configurar limites]
+    B --> C[Gerar link + token]
+    C --> D[Compartilhar separadamente]
+    D --> E[Usuário acessa link]
+    E --> F[Inserir token]
+    F --> G[Download do arquivo]
+```
+
+### Configurações
+
+| Campo | Descrição | Limites |
+|-------|-----------|---------|
+| **Arquivo** | Arquivo a compartilhar | Próprios arquivos |
+| **Acessos máximos** | Quantas vezes pode ser acessado | 1-100 |
+| **Validade** | Tempo até expirar | 1-168 horas |
+| **Token** | Código de 6 dígitos | Gerado automaticamente |
+
+---
+
+## 🔐 Multi-Factor Authentication (MFA)
+
+### Configuração
+
+1. **Ativar MFA** na aba Segurança
+2. **Escanear QR Code** com Google Authenticator
+3. **Inserir código** de verificação
+4. **Confirmar ativação**
+
+### Compatibilidade
+
+- ✅ **Google Authenticator**
+- ✅ **Microsoft Authenticator**
+- ✅ **Authy**
+- ✅ **Qualquer app TOTP**
+
+### Características Técnicas
+
+- 🔐 **TOTP** (Time-based One-Time Password)
+- ⏰ **Window de 30 segundos**
+- 🎯 **Tolerância de ±1 window**
+- 🔄 **Recovery via admin**
+
+---
+
+## 📊 Monitoramento e Estatísticas
+
+### Métricas de Sistema
+
+**Dashboard principal:**
+- 👥 Usuários totais/ativos
+- 📄 Arquivos armazenados
+- 💾 Espaço utilizado
+- 📤 Uploads hoje
+- 🏢 Departamentos únicos
+
+### Estatísticas de Upload
+
+**Monitoramento em tempo real:**
+- 📊 Progresso individual
+- ⚡ Velocidade média
+- ⏱️ Tempo estimado (ETA)
+- 📦 Chunks completados
+- 🎯 Status detalhado
+
+### Relatórios Administrativos
+
+**Relatórios disponíveis:**
+- 👥 **Usuários** por departamento/role
+- 📁 **Arquivos** por usuário/período
+- 📊 **Uso de armazenamento** por departamento
+- 🔐 **Adoção de MFA** por setor
+- 📈 **Tendências** de uso
+
+---
+
+## 🧪 Testes e Qualidade
+
+### Testes Implementados
+
+**Upload simultâneo:**
+```python
+test_generate_unique_filename()  # Nomes únicos
+test_create_upload_session()     # Criação de sessões
+test_update_progress()           # Atualização de progresso
+test_complete_upload()           # Finalização
+test_thread_safety()            # Thread safety
+```
+
+**Performance:**
+```python
+test_50_concurrent_uploads()     # 50 uploads simultâneos
+test_large_file_handling()      # Arquivos grandes
+test_memory_usage()             # Uso de memória
+test_error_recovery()           # Recovery de erros
+```
+
+### Executar Testes
+
+```bash
+# Testes unitários
+python test_concurrent_uploads.py
+
+# Teste de performance
+python -c "from test_concurrent_uploads import run_performance_test; run_performance_test()"
+```
+
+---
+
+## 🚨 Troubleshooting
+
+### Problemas Comuns
+
+#### ❌ Erro de Login
+```
+Problema: "Credenciais inválidas"
+Solução: 
+1. Verificar hash da senha no banco
+2. Executar script de correção do admin
+3. Verificar status ativo do usuário
+```
+
+#### 📤 Upload Falha
+```
+Problema: Upload não completa
+Solução:
+1. Verificar configurações AWS
+2. Validar permissões S3
+3. Checar tamanho do arquivo (max 2GB)
+4. Verificar conexão de rede
+```
+
+#### 🔐 MFA não Funciona
+```
+Problema: Código MFA rejeitado
+Solução:
+1. Verificar sincronização de horário
+2. Usar window de tolerância
+3. Regenerar secret MFA
+4. Verificar app authenticator
+```
+
+#### 🗄️ Erro de Banco
+```
+Problema: Conexão com PostgreSQL
+Solução:
+1. Verificar DATABASE_URL
+2. Testar conectividade
+3. Validar credenciais
+4. Verificar firewall
+```
+
+### Logs de Debug
+
+**Ativar logs detalhados:**
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+**Locais dos logs:**
+- 📊 **Application:** Console do Streamlit
+- 🔒 **Security:** Formato estruturado
+- 🗄️ **Database:** PostgreSQL logs
+- ☁️ **S3:** Boto3 debug
+
+### Scripts de Manutenção
+
+**Reset completo do sistema:**
+```bash
+python reset_users_system.py
+```
+
+**Limpeza de sessões expiradas:**
+```python
+from database import DatabaseManager
+db = DatabaseManager(DATABASE_URL)
+db.cleanup_expired_sessions()
+```
+
+**Sincronização de arquivos órfãos:**
+```python
+# Via interface web: Aba Upload > Sincronização
+```
+
+---
+
+## 📈 Performance e Escalabilidade
+
+### Otimizações Implementadas
+
+**Banco de dados:**
+- 🔗 **Connection pooling** thread-safe
+- 📊 **Índices otimizados** para consultas frequentes
+- 🧹 **Cleanup automático** de dados antigos
+- 🔄 **Transações otimizadas**
+
+**Upload de arquivos:**
+- ⚡ **Multipart automático** para arquivos >100MB
+- 🔄 **Thread pooling** para uploads simultâneos
+- 📊 **Progress tracking** otimizado
+- 🎯 **Queue prioritizada**
+
+**Interface:**
+- 📱 **Componentes reutilizáveis**
+- 🔄 **Loading states** inteligentes
+- 💾 **Cache de estado** otimizado
+- ⚡ **Renderização condicional**
+
+### Limites Atuais
+
+| Recurso | Limite Atual | Escalabilidade |
+|---------|--------------|----------------|
+| **Uploads simultâneos** | 10 | Configurável |
+| **Tamanho de arquivo** | 2GB | Limitação S3 |
+| **Usuários simultâneos** | ~100 | Depende do servidor |
+| **Armazenamento** | Ilimitado | S3 |
+| **Sessões ativas** | 1000 | Configurável |
+
+### Monitoramento de Performance
+
+**Métricas coletadas:**
+- ⚡ **Velocidade de upload** (MB/s)
+- 🕐 **Tempo de resposta** das páginas
+- 💾 **Uso de memória** do processo
+- 🔄 **Throughput** de uploads
+- 📊 **Estatísticas de erro**
+
+---
+
+## 🛠 Configurações Avançadas
+
+### Personalização da Interface
+
+**Logo da empresa:**
+```bash
+# Colocar logo em /app/assets/logo.png
+# Formato: PNG, recomendado 200x200px
+```
+
+**Cores e tema:**
+```python
+# Editar ui_components.py
+# Personalizar cores e estilos CSS
+```
+
+### Configurações de Segurança
+
+**Rate limiting personalizado:**
+```python
+# Em config.py
+RATE_CONFIGS = {
+    'login': {'max_calls': 5, 'window_minutes': 10},
+    'upload': {'max_calls': 50, 'window_minutes': 60}
+}
+```
+
+**Headers de segurança:**
+```python
+# Personalizar em security_patches.py
+def apply_security_headers():
+    # Adicionar headers customizados
+```
+
+### Integrações Externas
+
+**Webhook para uploads:**
+```python
+# Adicionar em s3_manager.py após upload
+def notify_webhook(file_info):
+    # Notificar sistema externo
+```
+
+**LDAP/Active Directory:**
+```python
+# Integração em database.py
+def authenticate_ldap(username, password):
+    # Autenticação externa
+```
+
+---
+
+## 📞 Suporte e Contribuição
+
+### Estrutura de Suporte
+
+1. **📖 Documentação** - Este README
+2. **🐛 Issues** - Reportar problemas
+3. **💡 Features** - Sugerir melhorias
+4. **🔧 Troubleshooting** - Guias de solução
+
+### Como Contribuir
+
+1. **Fork** do repositório
+2. **Branch** para feature/bugfix
+3. **Testes** para mudanças
+4. **Pull Request** com descrição detalhada
+
+### Roadmap
+
+**Próximas funcionalidades:**
+- 📱 **App mobile** React Native
+- 🔄 **Sincronização** automática
+- 📊 **Analytics** avançado
+- 🌐 **Multi-tenant** support
+- 🤖 **API REST** completa
+
+---
+
+## 📄 Licença e Créditos
+
+**Tecnologias utilizadas:**
+- 🐍 **Python 3.8+**
+- 🎨 **Streamlit** - Interface web
+- 🗄️ **PostgreSQL** - Banco de dados
+- ☁️ **AWS S3** - Armazenamento
+- 🔐 **TOTP** - Multi-factor authentication
+
+**Autor:** Sistema desenvolvido para gerenciamento seguro de arquivos empresariais.
+
+**Versão:** 1.0.0  
+**Data:** Dezembro 2024
+
+---
+
+## 📋 Checklist de Deploy
+
+### Pré-deploy
+- [ ] Variáveis de ambiente configuradas
+- [ ] Banco de dados inicializado
+- [ ] Bucket S3 configurado
+- [ ] Dependências instaladas
+- [ ] Testes executados
+
+### Deploy
+- [ ] Aplicação rodando
+- [ ] Admin criado com sucesso
+- [ ] Upload funcionando
+- [ ] MFA configurável
+- [ ] Painel admin acessível
+
+### Pós-deploy
+- [ ] Usuários de teste criados
+- [ ] Arquivos de teste enviados
+- [ ] Links temporários testados
+- [ ] Logs de segurança funcionando
+- [ ] Backup configurado
+
+---
+
+**🎉 Sistema pronto para produção!**

@@ -1,0 +1,43 @@
+-- =======================================================================
+-- EXECUÇÃO MANUAL PASSO A PASSO NO pgAdmin
+-- Copie e execute CADA COMANDO SEPARADAMENTE
+-- =======================================================================
+
+-- COMANDO 1: Verificar se usuário existe
+SELECT username, is_active FROM users WHERE username = 'teste_15';
+
+-- COMANDO 2: Verificar na tabela estendida  
+SELECT username, is_active, status FROM users_extended WHERE username = 'teste_15';
+
+-- COMANDO 3: Deletar arquivos (execute e veja resultado)
+DELETE FROM files WHERE uploaded_by = 'teste_15';
+
+-- COMANDO 4: Deletar downloads (execute e veja resultado)
+DELETE FROM downloads WHERE downloaded_by = 'teste_15';
+
+-- COMANDO 5: Deletar links temporários (execute e veja resultado)
+DELETE FROM temporary_links WHERE created_by = 'teste_15';
+
+-- COMANDO 6: Deletar sessões (execute e veja resultado)
+DELETE FROM user_sessions WHERE username = 'teste_15';
+
+-- COMANDO 7: Deletar logs admin - como admin (execute e veja resultado)
+DELETE FROM admin_logs WHERE admin_username = 'teste_15';
+
+-- COMANDO 8: Deletar logs admin - como target (execute e veja resultado)  
+DELETE FROM admin_logs WHERE target_username = 'teste_15';
+
+-- COMANDO 9: Deletar da tabela estendida (IMPORTANTE - execute e veja resultado)
+DELETE FROM users_extended WHERE username = 'teste_15';
+
+-- COMANDO 10: Deletar da tabela principal (IMPORTANTE - execute e veja resultado)
+DELETE FROM users WHERE username = 'teste_15';
+
+-- COMANDO 11: Verificar se foi removido
+SELECT COUNT(*) as "Ainda existe em users" FROM users WHERE username = 'teste_15';
+
+-- COMANDO 12: Verificar na tabela estendida
+SELECT COUNT(*) as "Ainda existe em users_extended" FROM users_extended WHERE username = 'teste_15';
+
+-- COMANDO 13: Contar usuários ativos total
+SELECT COUNT(*) as "Total usuarios ativos" FROM users WHERE is_active = TRUE;

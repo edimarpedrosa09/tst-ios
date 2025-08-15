@@ -1,0 +1,62 @@
+# REQUIREMENTS.TXT - SISTEMA COMPLETO DE GERENCIAMENTO DE ARQUIVOS
+# Execute: pip install -r requirements.txt
+
+# ===== DEPENDÊNCIAS PRINCIPAIS =====
+# Framework web e interface
+streamlit>=1.29.0
+
+# Banco de dados PostgreSQL
+psycopg2-binary>=2.9.7
+
+# AWS S3 para armazenamento
+boto3>=1.28.0
+
+# Manipulação de dados
+pandas>=1.5.0
+
+# ===== GRÁFICOS E VISUALIZAÇÕES AVANÇADAS =====
+# Sistema de relatórios administrativos (NOVO)
+plotly>=5.15.0
+plotly-express>=0.4.1
+
+# Análise e visualização de dados
+numpy>=1.24.0
+matplotlib>=3.6.0
+seaborn>=0.12.0
+
+# ===== AUTENTICAÇÃO E SEGURANÇA =====
+# MFA - Multi-Factor Authentication (OPCIONAL)
+pyotp>=2.8.0
+qrcode[pil]>=7.4.2
+pillow>=10.0.0
+
+# Criptografia e tokens
+bcrypt>=4.0.0
+PyJWT>=2.8.0
+
+# ===== SESSÕES E COOKIES =====
+# Gerenciamento de sessões persistentes (OPCIONAL)
+extra-streamlit-components>=0.1.56
+
+# ===== PERFORMANCE E MONITORAMENTO =====
+# Monitoramento de sistema
+psutil>=5.9.0
+
+# ===== DESENVOLVIMENTO (OPCIONAL) =====
+# Testes e qualidade de código
+pytest>=7.0.0
+black>=23.0.0
+flake8>=6.0.0
+
+# ===== INSTALAÇÃO POR MÓDULOS =====
+# Para instalar apenas o essencial:
+# pip install streamlit psycopg2-binary boto3 pandas plotly
+
+# Para instalar com MFA:
+# pip install pyotp qrcode[pil] pillow
+
+# Para instalar com cookies/sessões:
+# pip install extra-streamlit-components
+
+# Para desenvolvimento:
+# pip install pytest black flake8

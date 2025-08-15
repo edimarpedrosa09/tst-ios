@@ -1,0 +1,1099 @@
+"""
+Arquivo principal da aplicação - Gerenciador de Arquivos
+Versão completa com correção de importações e funcionalidades avançadas
+"""
+import streamlit as st
+import logging
+import pandas as pd
+from datetime import datetime
+
+# Configuração da página - DEVE ser a primeira chamada Streamlit
+st.set_page_config(
+    page_title="Gerenciador de Arquivos",
+    page_icon="📁",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+def apply_custom_css():
+    """Aplica CSS customizado para interface moderna"""
+    st.markdown("""
+    <style>
+    /* Botões primários - Verde com gradiente melhorado */
+    .stButton > button[kind="primary"],
+    .stFormSubmitButton > button {
+        background: linear-gradient(135deg, #28a745, #20c997) !important;
+        border: none !important;
+        color: white !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3) !important;
+        transition: all 0.3s ease !important;
+        padding: 0.5rem 1rem !important;
+    }
+    
+    .stButton > button[kind="primary"]:hover,
+    .stFormSubmitButton > button:hover {
+        background: linear-gradient(135deg, #218838, #1ea085) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4) !important;
+    }
+    
+    /* Progress bars verdes */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #28a745, #20c997) !important;
+    }
+    
+    /* Success messages */
+    .stSuccess {
+        background: linear-gradient(135deg, #d4edda, #c3e6cb) !important;
+        border-left: 4px solid #28a745 !important;
+        border-radius: 8px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Importações dos módulos principais
+from config import Config, setup_logging, check_dependencies
+from database import DatabaseManager
+from s3_manager import S3Manager
+from session_manager import SessionManager
+from mfa import MFAManager
+from ui_components import UIComponents
+from pages import (
+    LoginPage, 
+    MainApplicationPage, 
+    TemporaryLinkAccessPage
+)
+
+# Configuração de logging ANTES de usar
+logger = setup_logging()
+
+# Importações condicionais para evitar erros
+try:
+    # Sistema de usuários completo
+    from user_management import UserManager, UserRole, Permission, check_admin_access
+    from admin_pages import render_admin_panel
+    USER_MANAGEMENT_AVAILABLE = True
+    logger.info("✅ User management system loaded")
+except ImportError as e:
+    USER_MANAGEMENT_AVAILABLE = False
+    logger.warning(f"⚠️ User management not available: {e}")
+    
+    # Definições básicas como fallback
+    class UserRole:
+        ADMIN = "admin"
+        USER = "user"
+        MANAGER = "manager"
+        READONLY = "readonly"
+    
+    class Permission:
+        VIEW_ALL_FILES = "view_all_files"
+        UPLOAD_FILES = "upload_files"
+        DOWNLOAD_FILES = "download_files"
+        CREATE_TEMP_LINKS = "create_temp_links"
+        VIEW_ANALYTICS = "view_analytics"
+    
+    class UserManager:
+        def __init__(self, db_manager):
+            self.db_manager = db_manager
+        
+        def init_user_tables(self):
+            pass
+        
+        def get_user_info(self, username):
+            return {
+                'username': username,
+                'role': 'user',
+                'status': 'active',
+                'full_name': username,
+                'email': None,
+                'department': None,
+                'last_login': datetime.now(),
+                'mfa_enabled': False
+            }
+        
+        def has_permission(self, username, permission):
+            return True  # Permitir tudo no modo fallback
+        
+        def update_last_login(self, username):
+            pass
+    
+    def check_admin_access(username, user_manager):
+        return username == 'admin'
+    
+    def render_admin_panel(username, user_manager):
+        st.info("🚧 Painel administrativo em modo básico")
+        st.write("O sistema completo de usuários não está disponível.")
+
+# Importar sistema de segurança simplificado
+try:
+    from simplified_security import get_security_system, get_real_client_ip
+    SECURITY_AVAILABLE = True
+    logger.info("✅ Simplified security system loaded")
+except ImportError:
+    SECURITY_AVAILABLE = False
+    logger.warning("⚠️ Simplified security not found - using basic fallback")
+    
+    def get_security_system():
+        def noop(*args, **kwargs):
+            pass
+        
+        return {
+            'security_middleware': noop,
+            'rate_limit': lambda *args, **kwargs: lambda func: func,
+            'get_security_manager': lambda: None,
+            'get_client_ip': lambda: "127.0.0.1",
+            'apply_security_headers': noop,
+            'status': 'disabled'
+        }
+    
+    def get_real_client_ip():
+        return "127.0.0.1"
+
+# Importar monitor de upload melhorado
+try:
+    from enhanced_upload_monitor import create_enhanced_upload_ui, render_upload_section_enhanced
+    ENHANCED_UPLOAD_AVAILABLE = True
+    logger.info("✅ Enhanced upload monitor loaded")
+except ImportError:
+    ENHANCED_UPLOAD_AVAILABLE = False
+    logger.warning("⚠️ Enhanced upload monitor not found - using basic upload")
+
+
+def initialize_managers():
+    """Inicializa todos os gerenciadores"""
+    try:
+        # Validação de ambiente
+        Config.validate_environment()
+        
+        # Inicialização dos gerenciadores principais
+        db_manager = DatabaseManager(Config.DATABASE_URL)
+        s3_manager = S3Manager(
+            Config.AWS_ACCESS_KEY_ID,
+            Config.AWS_SECRET_ACCESS_KEY,
+            Config.AWS_REGION,
+            Config.S3_BUCKET
+        )
+        session_manager = SessionManager(db_manager)
+        mfa_manager = MFAManager(db_manager)
+        ui_components = UIComponents(Config)
+        
+        # Sistema de usuários (se disponível)
+        if USER_MANAGEMENT_AVAILABLE:
+            user_manager = UserManager(db_manager)
+        else:
+            user_manager = UserManager(db_manager)  # Versão fallback
+        
+        # Inicialização do banco
+        db_manager.init_database()
+        if USER_MANAGEMENT_AVAILABLE:
+            user_manager.init_user_tables()
+        session_manager.cleanup_expired_sessions()
+        
+        logger.info("All managers initialized successfully")
+        
+        return {
+            'db_manager': db_manager,
+            's3_manager': s3_manager,
+            'session_manager': session_manager,
+            'mfa_manager': mfa_manager,
+            'ui_components': ui_components,
+            'user_manager': user_manager,
+            'dependencies': check_dependencies()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error initializing managers: {e}")
+        st.error(f"❌ Erro na inicialização: {e}")
+        st.stop()
+
+
+def handle_authentication(managers):
+    """Lida com autenticação de usuários"""
+    session_manager = managers['session_manager']
+    user_manager = managers['user_manager']
+    
+    # Inicializar estado da sessão
+    session_manager.init_session_state()
+    
+    # Verificar sessão persistente
+    if not st.session_state.authenticated:
+        if session_manager.check_persistent_session():
+            user_manager.update_last_login(st.session_state.username)
+            st.success("🔒 Sessão restaurada!")
+            st.rerun()
+    
+    # Renderizar página apropriada
+    if not st.session_state.authenticated:
+        login_page = EnhancedLoginPage(
+            managers['db_manager'],
+            managers['session_manager'],
+            managers['mfa_manager'],
+            managers['ui_components'],
+            managers['user_manager']
+        )
+        login_page.render()
+    else:
+        main_app = EnhancedMainApplicationPageWithRoles(
+            managers['db_manager'],
+            managers['s3_manager'],
+            managers['session_manager'],
+            managers['mfa_manager'],
+            managers['ui_components'],
+            managers['user_manager']
+        )
+        main_app.render(st.session_state.username)
+
+
+class EnhancedLoginPage(LoginPage):
+    """Página de login melhorada"""
+    
+    def __init__(self, db_manager, session_manager, mfa_manager, ui_components, user_manager):
+        super().__init__(db_manager, session_manager, mfa_manager, ui_components)
+        self.user_manager = user_manager
+    
+    def render(self):
+        """Renderiza a página de login"""
+        self.ui.display_header_with_logo(
+            "🔐 Pluxee Group - Welcome",
+            f"Gerenciador de Arquivos - {self.ui.config.COMPANY_NAME}"
+        )
+
+        st.markdown("---")
+
+        if not st.session_state.awaiting_mfa:
+            self._render_enhanced_login_form()
+        else:
+            self._render_enhanced_mfa_form()
+
+        self._render_enhanced_footer()
+    
+    def _render_enhanced_login_form(self):
+        """Renderiza formulário de login"""
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:
+            st.markdown("### 👤 Welcome")
+            
+            with st.form("enhanced_login_form"):
+                username = st.text_input(
+                    "👤 Usuário", 
+                    placeholder="Digite seu nome de usuário"
+                )
+                
+                password = st.text_input(
+                    "🔒 Senha", 
+                    type="password", 
+                    placeholder="Digite sua senha"
+                )
+
+                remember_me = True
+                if self.session_manager.is_cookies_available():
+                    remember_me = st.checkbox("🔒 Manter-me conectado", value=True)
+
+                submit = st.form_submit_button("🚀 Entrar", use_container_width=True)
+
+                if submit:
+                    if not username or not password:
+                        st.error("❌ Preencha todos os campos!")
+                        return
+                    
+                    self._process_login(username, password, remember_me)
+    
+    def _process_login(self, username: str, password: str, remember_me: bool):
+        """Processa login"""
+        logger.info(f"Login attempt for user: {username}")
+        
+        # Verificar se usuário existe
+        if USER_MANAGEMENT_AVAILABLE:
+            user_info = self.user_manager.get_user_info(username)
+            if not user_info:
+                st.error("❌ Usuário não encontrado!")
+                return
+            
+            if user_info['status'] != 'active':
+                st.error("❌ Conta não está ativa!")
+                return
+        
+        # Tentar autenticar
+        authenticated, has_mfa = self.db_manager.authenticate_user(username, password)
+
+        if authenticated:
+            self.user_manager.update_last_login(username)
+            
+            if has_mfa:
+                st.session_state.awaiting_mfa = True
+                st.session_state.temp_username = username
+                st.session_state.remember_login = remember_me
+                st.success("✅ Credenciais válidas! Digite o código MFA:")
+                st.rerun()
+            else:
+                self.session_manager.complete_login(username, remember_me)
+                if USER_MANAGEMENT_AVAILABLE:
+                    user_info = self.user_manager.get_user_info(username)
+                    display_name = user_info['full_name'] or username
+                else:
+                    display_name = username
+                st.success(f"🎉 Bem-vindo, {display_name}!")
+                st.rerun()
+        else:
+            st.error("❌ Credenciais inválidas!")
+    
+    def _render_enhanced_mfa_form(self):
+        """Renderiza formulário MFA"""
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:
+            if USER_MANAGEMENT_AVAILABLE:
+                user_info = self.user_manager.get_user_info(st.session_state.temp_username)
+                display_name = user_info['full_name'] or st.session_state.temp_username
+            else:
+                display_name = st.session_state.temp_username
+            
+            st.success(f"✅ Bem-vindo, **{display_name}**!")
+            st.info("🔐 Verificação MFA necessária")
+
+            with st.form("enhanced_mfa_form"):
+                mfa_code = st.text_input(
+                    "🔢 Código MFA", 
+                    max_chars=6, 
+                    placeholder="000000"
+                )
+
+                col_verify, col_cancel = st.columns(2)
+
+                with col_verify:
+                    submit_mfa = st.form_submit_button("✅ Verificar", use_container_width=True)
+
+                with col_cancel:
+                    cancel = st.form_submit_button("❌ Cancelar", use_container_width=True)
+
+                if cancel:
+                    st.session_state.awaiting_mfa = False
+                    st.session_state.temp_username = None
+                    if 'remember_login' in st.session_state:
+                        del st.session_state.remember_login
+                    st.rerun()
+
+                if submit_mfa:
+                    if len(mfa_code) == 6 and mfa_code.isdigit():
+                        if self.mfa_manager.verify_mfa_token(st.session_state.temp_username, mfa_code):
+                            username = st.session_state.temp_username
+                            remember_me = st.session_state.get('remember_login', True)
+
+                            st.session_state.awaiting_mfa = False
+                            st.session_state.temp_username = None
+                            if 'remember_login' in st.session_state:
+                                del st.session_state.remember_login
+
+                            self.session_manager.complete_login(username, remember_me)
+                            st.success("🎉 Login realizado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Código MFA inválido!")
+                    else:
+                        st.error("❌ Digite exatamente 6 dígitos!")
+    
+    def _render_enhanced_footer(self):
+        """Renderiza rodapé"""
+        st.markdown("---")
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.caption(f"© 2024 {self.ui.config.COMPANY_NAME}")
+            st.caption("🛡️ Sistema seguro com autenticação MFA")
+
+
+class EnhancedMainApplicationPageWithRoles(MainApplicationPage):
+    """Página principal com sistema de roles"""
+    
+    def __init__(self, db_manager, s3_manager, session_manager, mfa_manager, 
+                 ui_components, user_manager):
+        super().__init__(db_manager, s3_manager, session_manager, mfa_manager, ui_components)
+        self.user_manager = user_manager
+    
+    def render(self, username: str):
+        """Renderiza aplicação com controle de acesso"""
+        # Obter informações do usuário
+        user_info = self.user_manager.get_user_info(username)
+        
+        if not user_info:
+            st.error("❌ Erro ao carregar informações do usuário")
+            return
+        
+        # Verificar se usuário ainda está ativo
+        if user_info['status'] != 'active':
+            st.error("❌ Conta não está ativa!")
+            if st.button("🚪 Sair"):
+                self.session_manager.perform_logout()
+                st.rerun()
+            return
+        
+        # Header personalizado
+        self._render_header_with_role(user_info)
+        
+        # Sidebar
+        self._render_sidebar_with_role(user_info)
+        
+        # Tabs principais
+        self._render_main_tabs_with_permissions(user_info)
+    
+    def _render_header_with_role(self, user_info: dict):
+        """Renderiza header com role"""
+        role_emoji = {
+            'admin': '👑',
+            'manager': '👨‍💼', 
+            'user': '👤',
+            'readonly': '👁️'
+        }
+        
+        emoji = role_emoji.get(user_info['role'], '👤')
+        role_name = user_info['role'].title()
+        
+        role_colors = {
+            'admin': 'linear-gradient(135deg, #dc3545, #c82333)',
+            'manager': 'linear-gradient(135deg, #fd7e14, #e55a00)',
+            'user': 'linear-gradient(135deg, #28a745, #20c997)',
+            'readonly': 'linear-gradient(135deg, #6c757d, #545b62)'
+        }
+        
+        role_color = role_colors.get(user_info['role'], role_colors['user'])
+        
+        st.markdown(f"""
+        <div style="background: {role_color}; color: white; padding: 1.5rem; 
+                    border-radius: 12px; margin-bottom: 1rem; text-align: center;">
+            <h1>{emoji} {user_info['full_name'] or user_info['username']}</h1>
+            <p style="margin: 0; opacity: 0.9;">
+                Perfil: {role_name} • Sistema de Arquivos Corporativo
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    def _render_sidebar_with_role(self, user_info: dict):
+        """Renderiza sidebar"""
+        with st.sidebar:
+            self.ui.display_sidebar_logo()
+            
+            st.markdown("---")
+            
+            # Informações do usuário
+            st.markdown(f"""
+            <div style="background: white; padding: 1rem; border-radius: 8px; 
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 1rem 0;">
+                <h4 style="margin: 0 0 0.5rem 0;">👤 {user_info['full_name'] or user_info['username']}</h4>
+                <p style="margin: 0; color: #666;">@{user_info['username']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Badge do role
+            role_colors = {
+                'admin': '#dc3545',
+                'manager': '#fd7e14',
+                'user': '#28a745',
+                'readonly': '#6c757d'
+            }
+            
+            role_color = role_colors.get(user_info['role'], '#6c757d')
+            role_display = user_info['role'].upper()
+            
+            st.markdown(f"""
+            <div style="background: {role_color}; color: white; padding: 0.5rem; 
+                        border-radius: 8px; text-align: center; margin: 0.5rem 0; font-weight: 600;">
+                {role_display}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Painel admin (se disponível)
+            if check_admin_access(user_info['username'], self.user_manager):
+                st.markdown("---")
+                st.write("**🛡️ Administração**")
+                
+                if st.button("📊 Painel Admin", use_container_width=True):
+                    st.session_state.show_admin_panel = True
+                    st.rerun()
+
+            st.markdown("---")
+
+            # Botão de logout
+            if st.button("🚪 Sair do Sistema", type="secondary", use_container_width=True):
+                self.session_manager.perform_logout()
+                st.rerun()
+
+            self.ui.display_footer()
+    
+    def _render_main_tabs_with_permissions(self, user_info: dict):
+        """Renderiza tabs principais"""
+        username = user_info['username']
+        
+        # Verificar permissões (com fallback)
+        if USER_MANAGEMENT_AVAILABLE:
+            can_upload = self.user_manager.has_permission(username, Permission.UPLOAD_FILES)
+            can_download = self.user_manager.has_permission(username, Permission.DOWNLOAD_FILES)
+            can_create_links = self.user_manager.has_permission(username, Permission.CREATE_TEMP_LINKS)
+            can_view_all_files = self.user_manager.has_permission(username, Permission.VIEW_ALL_FILES)
+        else:
+            # Modo fallback - permitir tudo
+            can_upload = True
+            can_download = True
+            can_create_links = True
+            can_view_all_files = user_info['role'] in ['admin', 'manager']
+        
+        is_admin = check_admin_access(username, self.user_manager)
+        
+        # Construir lista de tabs
+        tabs = []
+        tab_functions = []
+        
+        if can_upload:
+            tabs.append("📤 Upload de Arquivos")
+            tab_functions.append(lambda: self._render_upload_tab(username))
+        
+        if can_download:
+            tabs.append("📥 Meus Arquivos")
+            tab_functions.append(lambda: self._render_files_tab(username))
+        
+        if can_view_all_files and user_info['role'] in ['admin', 'manager']:
+            tabs.append("📋 Todos os Arquivos")
+            tab_functions.append(lambda: self._render_all_files_tab(username))
+        
+        if can_create_links:
+            tabs.append("🔗 Links Temporários")
+            tab_functions.append(lambda: self.temp_links_page.render(username))
+        
+        tabs.append("🔐 Segurança & MFA")
+        tab_functions.append(lambda: self._render_security_tab(username))
+        
+        if is_admin and USER_MANAGEMENT_AVAILABLE:
+            tabs.append("🛡️ Administração")
+            tab_functions.append(lambda: render_admin_panel(username, self.user_manager))
+        
+        # Renderizar tabs
+        if tabs:
+            tab_objects = st.tabs(tabs)
+            
+            for i, (tab_obj, tab_func) in enumerate(zip(tab_objects, tab_functions)):
+                with tab_obj:
+                    try:
+                        tab_func()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao carregar conteúdo: {str(e)}")
+                        logger.error(f"Tab error for user {username}: {e}")
+        else:
+            st.error("❌ Usuário sem permissões suficientes")
+    
+    def _render_upload_tab(self, username: str):
+        """Renderiza aba de upload"""
+        if ENHANCED_UPLOAD_AVAILABLE:
+            try:
+                render_upload_section_enhanced(self.s3_manager, username)
+                return
+            except Exception as e:
+                logger.error(f"Enhanced upload error: {e}")
+                st.warning("⚠️ Sistema de upload avançado indisponível")
+        
+        # Sistema básico como fallback
+        super()._render_upload_tab(username)
+    
+    def _render_all_files_tab(self, username: str):
+        """Renderiza aba com todos os arquivos - VERSÃO COMPLETA COM OVERVIEW"""
+        st.header("📁 Todos os Arquivos do Sistema")
+        
+        # Verificar permissões
+        if not USER_MANAGEMENT_AVAILABLE:
+            st.warning("🚧 Sistema de usuários em modo básico - Funcionalidades limitadas")
+            has_permission = self.user_manager.get_user_role(username) in ['admin', 'manager']
+        else:
+            has_permission = self.user_manager.has_permission(username, Permission.VIEW_ALL_FILES)
+        
+        if not has_permission:
+            st.error("❌ Sem permissão para visualizar todos os arquivos")
+            return
+        
+        try:
+            # === 1. OVERVIEW GERAL DO SISTEMA ===
+            st.subheader("📊 Overview Geral do Sistema")
+            
+            conn = self.db_manager.get_connection()
+            cursor = conn.cursor()
+            
+            # Estatísticas gerais
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_files,
+                    COALESCE(SUM(file_size), 0) as total_size,
+                    COUNT(DISTINCT uploaded_by) as unique_uploaders
+                FROM files
+                WHERE uploaded_by IS NOT NULL
+            """)
+            
+            general_stats = cursor.fetchone()
+            total_files, total_size, unique_uploaders = general_stats
+            
+            # Estatísticas por tipo de arquivo
+            cursor.execute("""
+                SELECT 
+                    CASE 
+                        WHEN mime_type LIKE 'image/%' THEN 'Imagens'
+                        WHEN mime_type LIKE 'video/%' THEN 'Vídeos'
+                        WHEN mime_type LIKE 'application/pdf%' THEN 'PDFs'
+                        WHEN mime_type LIKE 'text/%' THEN 'Documentos'
+                        WHEN mime_type LIKE 'application/zip%' OR mime_type LIKE 'application/x-rar%' THEN 'Arquivos'
+                        WHEN mime_type LIKE 'audio/%' THEN 'Áudios'
+                        ELSE 'Outros'
+                    END as tipo,
+                    COUNT(*) as quantidade,
+                    COALESCE(SUM(file_size), 0) as tamanho_total
+                FROM files 
+                WHERE uploaded_by IS NOT NULL
+                GROUP BY tipo
+                ORDER BY quantidade DESC
+            """)
+            
+            file_types = cursor.fetchall()
+            
+            # === MÉTRICAS PRINCIPAIS ===
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    "📁 Total de Arquivos", 
+                    f"{total_files:,}",
+                    help="Todos os arquivos no sistema"
+                )
+            
+            with col2:
+                size_gb = total_size / (1024**3) if total_size > 0 else 0
+                size_display = f"{size_gb:.2f} GB" if size_gb >= 1 else f"{total_size / (1024**2):.1f} MB"
+                st.metric(
+                    "💾 Armazenamento Total", 
+                    size_display,
+                    help="Espaço total utilizado"
+                )
+            
+            with col3:
+                st.metric(
+                    "👥 Usuários Ativos", 
+                    f"{unique_uploaders}",
+                    help="Usuários que já fizeram upload"
+                )
+            
+            with col4:
+                avg_size = (total_size / total_files) if total_files > 0 else 0
+                avg_mb = avg_size / (1024**2) if avg_size > 0 else 0
+                avg_display = f"{avg_mb:.1f} MB" if avg_mb >= 1 else f"{avg_size / 1024:.1f} KB"
+                st.metric(
+                    "📊 Tamanho Médio", 
+                    avg_display,
+                    help="Tamanho médio por arquivo"
+                )
+            
+            # === GRÁFICO DE TIPOS DE ARQUIVO ===
+            if file_types:
+                st.write("**📋 Distribuição por Tipo de Arquivo**")
+                types_df = pd.DataFrame(file_types, columns=['Tipo', 'Quantidade', 'Tamanho'])
+                
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    # Gráfico de barras para quantidade
+                    chart_data = types_df.set_index('Tipo')['Quantidade']
+                    st.bar_chart(chart_data)
+                
+                with col2:
+                    # Tabela resumo
+                    st.dataframe(
+                        types_df.assign(
+                            **{'Tamanho (MB)': types_df['Tamanho'].apply(lambda x: f"{x/(1024**2):.1f}")}
+                        )[['Tipo', 'Quantidade', 'Tamanho (MB)']],
+                        hide_index=True
+                    )
+            
+            st.markdown("---")
+            
+            # === 2. ESTATÍSTICAS POR USUÁRIO ===
+            st.subheader("👥 Estatísticas por Usuário")
+            
+            # Top usuários por armazenamento
+            cursor.execute("""
+                SELECT 
+                    f.uploaded_by as usuario,
+                    u.full_name,
+                    COUNT(*) as total_arquivos,
+                    COALESCE(SUM(f.file_size), 0) as total_tamanho,
+                    MAX(f.uploaded_at) as ultimo_upload
+                FROM files f
+                LEFT JOIN users u ON f.uploaded_by = u.username
+                WHERE f.uploaded_by IS NOT NULL
+                GROUP BY f.uploaded_by, u.full_name
+                ORDER BY total_tamanho DESC
+                LIMIT 15
+            """)
+            
+            user_stats = cursor.fetchall()
+            
+            # Atividade recente (últimos 30 dias)
+            cursor.execute("""
+                SELECT 
+                    f.uploaded_by,
+                    COUNT(*) as arquivos_30d
+                FROM files f
+                WHERE f.uploaded_by IS NOT NULL 
+                    AND f.uploaded_at >= CURRENT_DATE - INTERVAL '30 days'
+                GROUP BY f.uploaded_by
+                ORDER BY arquivos_30d DESC
+            """)
+            
+            recent_activity = dict(cursor.fetchall())
+            
+            if user_stats:
+                st.write("**🏆 Top 15 Usuários por Armazenamento Utilizado**")
+                
+                # Criar dados formatados
+                user_data = []
+                for i, stat in enumerate(user_stats):
+                    usuario, full_name, total_arquivos, total_tamanho, ultimo_upload = stat
+                    
+                    nome_display = full_name if full_name else usuario
+                    tamanho_gb = total_tamanho / (1024**3)
+                    tamanho_display = f"{tamanho_gb:.2f} GB" if tamanho_gb >= 1 else f"{total_tamanho / (1024**2):.1f} MB"
+                    atividade_30d = recent_activity.get(usuario, 0)
+                    
+                    user_data.append({
+                        'Pos': f"#{i+1}",
+                        'Usuário': f"@{usuario}",
+                        'Nome': nome_display,
+                        'Arquivos': f"{total_arquivos:,}",
+                        'Armazenamento': tamanho_display,
+                        'Atividade (30d)': f"{atividade_30d} arquivos" if atividade_30d > 0 else "-",
+                        'Último Upload': ultimo_upload.strftime('%d/%m/%Y') if ultimo_upload else 'N/A'
+                    })
+                
+                df_users = pd.DataFrame(user_data)
+                
+                # Tabela interativa
+                st.dataframe(df_users, hide_index=True, use_container_width=True)
+                
+                # Insights rápidos
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.write("**🥇 Top 3 por Armazenamento:**")
+                    for i, user in enumerate(user_data[:3]):
+                        emoji = ["🥇", "🥈", "🥉"][i]
+                        st.write(f"{emoji} {user['Nome']}: {user['Armazenamento']}")
+                
+                with col2:
+                    most_active = sorted(user_data, key=lambda x: int(x['Atividade (30d)'].split()[0]) if x['Atividade (30d)'] != "-" else 0, reverse=True)[:3]
+                    st.write("**🔥 Mais Ativos (30d):**")
+                    for user in most_active:
+                        if user['Atividade (30d)'] != "-":
+                            st.write(f"⚡ {user['Nome']}: {user['Atividade (30d)']}")
+                
+                with col3:
+                    total_users = len(user_data)
+                    total_storage_gb = sum(float(u['Armazenamento'].split()[0]) for u in user_data if 'GB' in u['Armazenamento'])
+                    total_storage_mb = sum(float(u['Armazenamento'].split()[0]) for u in user_data if 'MB' in u['Armazenamento']) / 1024
+                    total_storage = total_storage_gb + total_storage_mb
+                    
+                    st.write("**📊 Resumo:**")
+                    st.write(f"👥 {total_users} usuários")
+                    st.write(f"💾 {total_storage:.2f} GB total")
+                    st.write(f"📊 {total_storage/total_users:.2f} GB/usuário")
+            
+            st.markdown("---")
+            
+            # === 3. FILTROS DE ARQUIVOS ===
+            st.subheader("🔍 Buscar e Filtrar Arquivos")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                user_filter = st.text_input("👤 Usuário", placeholder="@username")
+            
+            with col2:
+                file_filter = st.text_input("📄 Nome do Arquivo", placeholder="documento.pdf")
+            
+            with col3:
+                size_filter = st.selectbox("📊 Tamanho", [
+                    "Todos", "< 1MB", "1-10MB", "10-100MB", "100MB-1GB", "> 1GB"
+                ])
+            
+            with col4:
+                type_filter = st.selectbox("📋 Tipo", [
+                    "Todos", "Imagens", "Vídeos", "PDFs", "Documentos", "Arquivos", "Áudios", "Outros"
+                ])
+            
+            # Filtros avançados
+            with st.expander("🔧 Filtros Avançados"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    date_from = st.date_input("📅 Upload após")
+                    show_downloads = st.checkbox("📥 Apenas arquivos baixados")
+                
+                with col2:
+                    date_to = st.date_input("📅 Upload antes")
+                    show_orphans = st.checkbox("🔍 Incluir arquivos órfãos")
+            
+            # === 4. LISTA DE ARQUIVOS ===
+            st.subheader("📋 Lista de Arquivos")
+            
+            # Construir query com filtros
+            base_query = """
+                SELECT 
+                    f.file_key,
+                    f.original_name,
+                    f.file_size,
+                    f.uploaded_by,
+                    f.uploaded_at,
+                    f.mime_type,
+                    u.full_name,
+                    CASE WHEN d.file_key IS NOT NULL THEN TRUE ELSE FALSE END as has_downloads,
+                    COUNT(d.id) as download_count
+                FROM files f
+                LEFT JOIN users u ON f.uploaded_by = u.username
+                LEFT JOIN file_downloads d ON f.file_key = d.file_key
+            """
+            
+            where_conditions = []
+            params = []
+            
+            # Aplicar filtros
+            if user_filter:
+                clean_user = user_filter.replace('@', '')
+                where_conditions.append("f.uploaded_by ILIKE %s")
+                params.append(f"%{clean_user}%")
+            
+            if file_filter:
+                where_conditions.append("f.original_name ILIKE %s")
+                params.append(f"%{file_filter}%")
+            
+            if size_filter != "Todos":
+                if size_filter == "< 1MB":
+                    where_conditions.append("f.file_size < %s")
+                    params.append(1024*1024)
+                elif size_filter == "1-10MB":
+                    where_conditions.append("f.file_size BETWEEN %s AND %s")
+                    params.extend([1024*1024, 10*1024*1024])
+                elif size_filter == "10-100MB":
+                    where_conditions.append("f.file_size BETWEEN %s AND %s")
+                    params.extend([10*1024*1024, 100*1024*1024])
+                elif size_filter == "100MB-1GB":
+                    where_conditions.append("f.file_size BETWEEN %s AND %s")
+                    params.extend([100*1024*1024, 1024*1024*1024])
+                elif size_filter == "> 1GB":
+                    where_conditions.append("f.file_size > %s")
+                    params.append(1024*1024*1024)
+            
+            if type_filter != "Todos":
+                if type_filter == "Imagens":
+                    where_conditions.append("f.mime_type LIKE 'image/%'")
+                elif type_filter == "Vídeos":
+                    where_conditions.append("f.mime_type LIKE 'video/%'")
+                elif type_filter == "PDFs":
+                    where_conditions.append("f.mime_type LIKE 'application/pdf%'")
+                elif type_filter == "Documentos":
+                    where_conditions.append("f.mime_type LIKE 'text/%' OR f.mime_type LIKE 'application/msword%' OR f.mime_type LIKE 'application/vnd.openxmlformats%'")
+                elif type_filter == "Arquivos":
+                    where_conditions.append("f.mime_type LIKE 'application/zip%' OR f.mime_type LIKE 'application/x-rar%'")
+                elif type_filter == "Áudios":
+                    where_conditions.append("f.mime_type LIKE 'audio/%'")
+                else:  # Outros
+                    where_conditions.append("""
+                        f.mime_type NOT LIKE 'image/%' 
+                        AND f.mime_type NOT LIKE 'video/%' 
+                        AND f.mime_type NOT LIKE 'application/pdf%'
+                        AND f.mime_type NOT LIKE 'text/%'
+                        AND f.mime_type NOT LIKE 'application/zip%'
+                        AND f.mime_type NOT LIKE 'application/x-rar%'
+                        AND f.mime_type NOT LIKE 'audio/%'
+                    """)
+            
+            if date_from:
+                where_conditions.append("f.uploaded_at >= %s")
+                params.append(date_from)
+            
+            if date_to:
+                where_conditions.append("f.uploaded_at <= %s")
+                params.append(date_to)
+            
+            if show_downloads:
+                where_conditions.append("d.file_key IS NOT NULL")
+            
+            if not show_orphans:
+                where_conditions.append("f.uploaded_by IS NOT NULL")
+            
+            # Completar query
+            if where_conditions:
+                base_query += " WHERE " + " AND ".join(where_conditions)
+            
+            base_query += """
+                GROUP BY f.file_key, f.original_name, f.file_size, f.uploaded_by, 
+                         f.uploaded_at, f.mime_type, u.full_name
+                ORDER BY f.uploaded_at DESC 
+                LIMIT 100
+            """
+            
+            cursor.execute(base_query, params)
+            files = cursor.fetchall()
+            
+            cursor.close()
+            conn.close()
+            
+            if files:
+                st.write(f"**{len(files)} arquivos encontrados** (máximo 100 exibidos)")
+                
+                # Preparar dados para tabela
+                file_data = []
+                for file_info in files:
+                    file_key, original_name, file_size, uploaded_by, uploaded_at, mime_type, full_name, has_downloads, download_count = file_info
+                    
+                    # Formatações
+                    size_mb = file_size / (1024 * 1024)
+                    if size_mb >= 1024:
+                        size_display = f"{size_mb/1024:.2f} GB"
+                    elif size_mb >= 1:
+                        size_display = f"{size_mb:.1f} MB"
+                    else:
+                        size_display = f"{file_size/1024:.1f} KB"
+                    
+                    # Tipo de arquivo
+                    if mime_type:
+                        if mime_type.startswith('image/'):
+                            type_display = "🖼️ Imagem"
+                        elif mime_type.startswith('video/'):
+                            type_display = "🎥 Vídeo"
+                        elif 'pdf' in mime_type:
+                            type_display = "📕 PDF"
+                        elif mime_type.startswith('text/'):
+                            type_display = "📝 Texto"
+                        elif 'zip' in mime_type or 'rar' in mime_type:
+                            type_display = "📦 Arquivo"
+                        elif 'audio' in mime_type:
+                            type_display = "🎵 Áudio"
+                        else:
+                            type_display = "📄 Outro"
+                    else:
+                        type_display = "❓ Desconhecido"
+                    
+                    uploader_display = full_name if full_name else (uploaded_by or "❌ Usuário Deletado")
+                    date_display = uploaded_at.strftime('%d/%m/%Y %H:%M') if uploaded_at else 'N/A'
+                    
+                    file_data.append({
+                        'Arquivo': original_name,
+                        'Tamanho': size_display,
+                        'Tipo': type_display,
+                        'Enviado por': uploader_display,
+                        'Data': date_display,
+                        'Downloads': download_count,
+                        'Status': "✅ Baixado" if has_downloads else "⏳ Disponível"
+                    })
+                
+                # Exibir tabela
+                df_files = pd.DataFrame(file_data)
+                st.dataframe(df_files, hide_index=True, use_container_width=True)
+                
+                # Estatísticas dos resultados filtrados
+                total_size_filtered = sum(f[2] for f in files)  # file_size
+                unique_users_filtered = len(set(f[3] for f in files if f[3]))  # uploaded_by
+                total_downloads = sum(f[8] for f in files)  # download_count
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("📁 Arquivos", len(files))
+                
+                with col2:
+                    size_gb = total_size_filtered / (1024**3)
+                    size_display = f"{size_gb:.2f} GB" if size_gb >= 1 else f"{total_size_filtered / (1024**2):.1f} MB"
+                    st.metric("💾 Tamanho", size_display)
+                
+                with col3:
+                    st.metric("👥 Usuários", unique_users_filtered)
+                
+                with col4:
+                    st.metric("📥 Downloads", total_downloads)
+                
+                # Download do relatório
+                csv_data = df_files.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Relatório CSV",
+                    data=csv_data,
+                    file_name=f"relatorio_arquivos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+                
+            else:
+                st.info("📂 Nenhum arquivo encontrado com os filtros aplicados")
+                st.write("💡 **Dicas:**")
+                st.write("• Tente remover alguns filtros")
+                st.write("• Verifique se os nomes estão corretos")
+                st.write("• Experimente ampliar o período de datas")
+                
+        except Exception as e:
+            st.error(f"❌ Erro ao carregar dados: {e}")
+            logger.error(f"Error in enhanced all files tab: {e}")
+        
+        finally:
+            if 'conn' in locals():
+                conn.close()
+    
+    def _render_security_tab(self, username: str):
+        """Renderiza aba de segurança"""
+        st.header("🔐 Segurança & Autenticação")
+        
+        # Usar a página existente de MFA
+        self.mfa_setup_page.render(username)
+
+
+def main():
+    """Função principal da aplicação"""
+    
+    # Aplicar CSS moderno
+    apply_custom_css()
+    
+    try:
+        # Inicializar todos os gerenciadores
+        managers = initialize_managers()
+        
+        # Verificar disponibilidade do MFA
+        if not managers['dependencies']['MFA_AVAILABLE']:
+            st.error("❌ Sistema MFA Indisponível")
+            st.info("Para habilitar MFA: pip install pyotp qrcode[pil] pillow")
+            if st.button("🔄 Recarregar Sistema", type="primary"):
+                st.rerun()
+            st.stop()
+        
+        # Mostrar avisos sobre módulos indisponíveis
+        if not USER_MANAGEMENT_AVAILABLE:
+            with st.sidebar:
+                st.warning("⚠️ Modo Básico")
+                st.caption("Sistema de usuários não disponível")
+        
+        # Lidar com autenticação
+        handle_authentication(managers)
+        
+    except Exception as e:
+        logger.error(f"Application error: {e}")
+        st.error("🚨 Erro Crítico da Aplicação")
+        st.code(f"Erro: {str(e)}\nTipo: {type(e).__name__}")
+        
+        if st.button("🔄 Tentar Novamente", type="primary"):
+            st.rerun()
+
+
+# Ponto de entrada da aplicação
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as critical_error:
+        logger.critical(f"Critical application error: {critical_error}")
+        
+        try:
+            st.error("💥 Erro Crítico Fatal")
+            st.code(f"Erro: {str(critical_error)}\nTipo: {type(critical_error).__name__}")
+            st.info("📞 Entre em contato com o suporte técnico")
+        except:
+            pass

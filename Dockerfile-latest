@@ -1,0 +1,72 @@
+FROM python:3.9-slim
+
+# Metadados da imagem
+LABEL maintainer="Pluxee Group"
+LABEL description="Gerenciador de Arquivos - Versão Modular Completa"
+LABEL version="2.1"
+
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    software-properties-common \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Criar diretório da aplicação
+WORKDIR /app
+
+# Criar diretórios necessários
+RUN mkdir -p /app/assets /app/logs /app/.streamlit
+
+# Copiar requirements primeiro (para melhor cache do Docker)
+COPY requirements.txt .
+
+# Instalar dependências Python
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copiar configuração do Streamlit
+COPY .streamlit/config.toml /app/.streamlit/config.toml
+
+# Copiar logo da empresa (opcional)
+# IMPORTANTE: Coloque seu logo.png na mesma pasta do Dockerfile
+COPY logo.png /app/assets/logo.png
+
+# Copiar todos os módulos da aplicação
+COPY main.py .
+COPY config.py .
+COPY database.py .
+COPY s3_manager.py .
+COPY session_manager.py .
+COPY mfa.py .
+COPY ui_components.py .
+COPY pages.py .
+COPY security_patches.py .
+COPY upload_monitor.py .
+
+# Copiar novos módulos para resolver warnings
+COPY simplified_security.py .
+COPY enhanced_upload_monitor.py .
+
+# Configurar variáveis de ambiente padrão
+ENV COMPANY_NAME="Pluxee Group"
+ENV PYTHONPATH="/app"
+ENV PYTHONUNBUFFERED=1
+
+# Criar usuário não-root para segurança
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Expor porta
+EXPOSE 8501
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# Verificar estrutura de arquivos (opcional, para debug)
+RUN ls -la /app/
+
+# Comando para iniciar a aplicação
+ENTRYPOINT ["streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "--server.fileWatcherType=none", "--server.maxUploadSize=2048"]
